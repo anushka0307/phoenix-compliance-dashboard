@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { useMsaNavigation } from "@/contexts/MsaNavigationContext";
+import { useSidebarWidth } from "@/hooks/useSidebarWidth";
 import { MsaActivationWizard } from "@/components/MsaActivationWizard";
 import { AcquisitionCampaignWizard } from "@/components/acquisition-campaign/AcquisitionCampaignWizard";
 import { MsaMarketsPanel } from "@/components/layout/sidebar/MsaMarketsPanel";
@@ -22,6 +23,8 @@ interface SidebarProps {
   onToggleCollapse: () => void;
   mobileOpen: boolean;
   onMobileClose: () => void;
+  width: number;
+  onResizeStart: (event: React.MouseEvent) => void;
 }
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -37,6 +40,8 @@ export function Sidebar({
   onToggleCollapse,
   mobileOpen,
   onMobileClose,
+  width,
+  onResizeStart,
 }: SidebarProps) {
   const navigate = useNavigate();
   const { allMsas } = useNetwork();
@@ -62,12 +67,13 @@ export function Sidebar({
 
       <aside
         className={cn(
-          "z-50 flex h-screen w-[300px] min-w-[280px] max-w-[320px] shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-all duration-300",
-          "max-lg:fixed max-lg:inset-y-0 max-lg:left-0",
+          "relative z-50 flex h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width] duration-150 ease-out",
+          "max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:w-[300px]",
           "lg:relative lg:sticky lg:top-0",
           collapsed ? "lg:w-[72px] lg:min-w-[72px] lg:max-w-[72px]" : "",
           mobileOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full",
         )}
+        style={!collapsed ? { width, minWidth: width, maxWidth: width } : undefined}
       >
         <div className="flex shrink-0 items-start justify-between gap-2 border-b border-sidebar-border px-2.5 py-2.5">
           {!collapsed && (
@@ -152,6 +158,18 @@ export function Sidebar({
             </div>
           )}
         </div>
+
+        {!collapsed && (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+            onMouseDown={onResizeStart}
+            className="absolute inset-y-0 right-0 z-10 hidden w-2 translate-x-1/2 cursor-col-resize lg:block"
+          >
+            <div className="mx-auto h-full w-px bg-transparent transition-colors hover:bg-border" />
+          </div>
+        )}
       </aside>
 
       <MsaActivationWizard
@@ -167,6 +185,7 @@ export function Sidebar({
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { width, startResize } = useSidebarWidth();
 
   return (
     <div className="flex h-screen min-h-0 overflow-hidden bg-background">
@@ -175,6 +194,8 @@ export function AppLayout() {
         onToggleCollapse={() => setCollapsed((prev) => !prev)}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
+        width={width}
+        onResizeStart={startResize}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

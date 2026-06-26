@@ -25,7 +25,7 @@ export const CBSA_SOURCE = {
 
 export const MAP_STYLES = {
   nonPortfolio: {
-    fill: "#edf1f5",
+    fill: "#dde3ea",
     stroke: "#d8e0e8",
     strokeWidth: 0.2,
   },
@@ -35,7 +35,7 @@ export const MAP_STYLES = {
   },
   /** Base layer: every statistical area visible with shared borders. */
   statisticalArea: {
-    fill: "#cbd5e1",
+    fill: "#b8c4d0",
     stroke: "#ffffff",
     strokeWidth: 0.65,
   },

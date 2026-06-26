@@ -107,7 +107,7 @@ export function MsaSidebarRow({
         <div className="flex min-w-0 items-center justify-between gap-1">
           <p
             className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-medium leading-tight text-foreground"
-            style={{ fontSize: "0.95rem" }}
+            style={{ fontSize: "0.875rem" }}
           >
             <HighlightText text={msa.name} query={query} />
           </p>

@@ -14,7 +14,7 @@ export function MsaOverviewHeader({ msa }: MsaOverviewHeaderProps) {
   return (
     <header className="space-y-1">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{msa.name}</h1>
+        <h1 className="text-sm font-semibold tracking-tight text-foreground">{msa.name}</h1>
         <MsaStatusBadge status={msa.status} />
       </div>
       <p className="text-sm text-muted-foreground">{geographySubtitle(msa)}</p>

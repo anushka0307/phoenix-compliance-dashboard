@@ -16,7 +16,7 @@ export const msaStatusMapColors: Record<MsaStatus, string> = {
   opportunity: "#F59E0B",
   "attention-required": "#EF4444",
   "new-market": "#3B82F6",
-  inactive: "#CBD5E1",
+  inactive: "#B0BEC8",
 };
 
 export const msaStatusMapFill: Record<MsaStatus, string> = {
@@ -24,7 +24,7 @@ export const msaStatusMapFill: Record<MsaStatus, string> = {
   opportunity: "#F59E0B",
   "attention-required": "#EF4444",
   "new-market": "#3B82F6",
-  inactive: "#CBD5E1",
+  inactive: "#B0BEC8",
 };
 
 export function getMsaStatusLabel(status: MsaStatus): string {

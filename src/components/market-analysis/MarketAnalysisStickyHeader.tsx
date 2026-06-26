@@ -23,7 +23,7 @@ export function MarketAnalysisStickyHeader({
             Market Analysis
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="truncate text-lg font-semibold tracking-tight text-foreground">
+            <h1 className="truncate text-sm font-semibold tracking-tight text-foreground">
               {msa.name}
             </h1>
             <MsaStatusBadge status={msa.status} compact />

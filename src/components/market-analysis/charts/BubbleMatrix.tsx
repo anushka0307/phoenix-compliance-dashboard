@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { formatCurrency } from "@/utils/format";
+import { resolveLabelCollisions, separateOverlappingNodes } from "@/utils/graphLabelLayout";
 
 export interface MatrixBubble {
   id: string;
@@ -31,30 +33,67 @@ function truncateLabel(label: string, max = 16): string {
 }
 
 export function BubbleMatrix({ bubbles, width = 720, height = 450 }: BubbleMatrixProps) {
-  const pad = { top: 44, right: 44, bottom: 56, left: 64 };
+  const pad = { top: 52, right: 52, bottom: 64, left: 72 };
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const maxSize = Math.max(...bubbles.map((b) => b.size), 1);
   const maxR = 26;
-  const labelSpace = 18;
+  const labelSpace = 20;
 
   const scaleR = (s: number) => 12 + (s / maxSize) * (maxR - 12);
 
-  const plotBubble = (bubble: MatrixBubble) => {
-    const r = scaleR(bubble.size);
-    const plotPadX = r + 4;
-    const plotPadY = r + labelSpace;
-    const x = pad.left + plotPadX + (clamp(bubble.effort, 0, 100) / 100) * (innerW - plotPadX * 2);
-    const y =
-      pad.top +
-      innerH -
-      plotPadY -
-      (clamp(bubble.impact, 0, 100) / 100) * (innerH - plotPadY * 2);
-    const labelY = Math.min(y + r + 12, pad.top + innerH - 4);
-    return { bubble, x, y, r, labelY };
-  };
+  const plotted = useMemo(() => {
+    const initial = bubbles.map((bubble) => {
+      const r = scaleR(bubble.size);
+      const plotPadX = r + 8;
+      const plotPadY = r + labelSpace;
+      const x =
+        pad.left + plotPadX + (clamp(bubble.effort, 0, 100) / 100) * (innerW - plotPadX * 2);
+      const y =
+        pad.top +
+        innerH -
+        plotPadY -
+        (clamp(bubble.impact, 0, 100) / 100) * (innerH - plotPadY * 2);
+      return { bubble, x, y, r };
+    });
 
-  const plotted = bubbles.map(plotBubble);
+    const separated = separateOverlappingNodes(
+      initial.map((item) => ({
+        id: item.bubble.id,
+        x: item.x,
+        y: item.y,
+        radius: item.r + 4,
+      })),
+      {
+        minX: pad.left + maxR,
+        minY: pad.top + maxR,
+        maxX: pad.left + innerW - maxR,
+        maxY: pad.top + innerH - maxR,
+      },
+      20,
+    );
+
+    const withPositions = initial.map((item) => {
+      const next = separated.get(item.bubble.id);
+      return next ? { ...item, x: next.x, y: next.y } : item;
+    });
+
+    const labelPlacements = resolveLabelCollisions(
+      withPositions.map((item) => ({
+        id: item.bubble.id,
+        anchorX: item.x,
+        anchorY: Math.min(item.y + item.r + 12, pad.top + innerH - 4),
+        text: truncateLabel(item.bubble.label),
+      })),
+      { fontSize: 9, labelHeight: 11 },
+    );
+
+    return withPositions.map((item) => ({
+      ...item,
+      label: labelPlacements.get(item.bubble.id),
+    }));
+  }, [bubbles, innerH, innerW, maxSize, pad.left, pad.top]);
+
   const midX = pad.left + innerW / 2;
   const midY = pad.top + innerH / 2;
 
@@ -87,7 +126,7 @@ export function BubbleMatrix({ bubbles, width = 720, height = 450 }: BubbleMatri
       <text x={pad.left + innerW - 10} y={pad.top + innerH - 8} textAnchor="end" fill="#64748b" fontSize={9}>
         Low priority
       </text>
-      {plotted.map(({ bubble, x, y, r, labelY }) => (
+      {plotted.map(({ bubble, x, y, r, label }) => (
         <g key={bubble.id}>
           <circle
             cx={x}
@@ -105,7 +144,14 @@ export function BubbleMatrix({ bubbles, width = 720, height = 450 }: BubbleMatri
               {bubble.priorityScore !== undefined ? `\nPriority: ${bubble.priorityScore}` : ""}
             </title>
           </circle>
-          <text x={x} y={labelY} textAnchor="middle" fill="#64748b" fontSize={9}>
+          <text
+            x={label?.x ?? x}
+            y={label?.y ?? y + r + 12}
+            textAnchor={label?.textAnchor ?? "middle"}
+            dominantBaseline={label?.dominantBaseline ?? "hanging"}
+            fill="#64748b"
+            fontSize={9}
+          >
             {truncateLabel(bubble.label)}
           </text>
         </g>

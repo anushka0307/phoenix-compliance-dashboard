@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PhysicianGraphLink, PhysicianGraphNode } from "@/types/marketAnalysis";
+import { resolveLabelCollisions, separateOverlappingNodes } from "@/utils/graphLabelLayout";
 
 interface SimNode extends PhysicianGraphNode {
   x: number;
@@ -28,22 +29,37 @@ const LEGEND = [
   { type: "competitor-pg" as const, label: "Competitor PG" },
 ];
 
+const PADDING = 52;
+const LINK_DISTANCE = 118;
+const LINK_FORCE = 0.034;
+const REPULSION_GAP = 30;
+
+function nodeRadius(type: PhysicianGraphNode["type"]): number {
+  if (type === "physician") return 6;
+  if (type === "competitor-pg") return 9;
+  return 11;
+}
+
 function runSimulation(
   nodes: PhysicianGraphNode[],
   links: PhysicianGraphLink[],
   width: number,
   height: number,
 ): SimNode[] {
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const spread = Math.min(width, height) * 0.28;
+
   const positions: SimNode[] = nodes.map((node, index) => ({
     ...node,
-    x: width / 2 + Math.cos((index / nodes.length) * Math.PI * 2) * 100,
-    y: height / 2 + Math.sin((index / nodes.length) * Math.PI * 2) * 80,
+    x: centerX + Math.cos((index / Math.max(nodes.length, 1)) * Math.PI * 2) * spread,
+    y: centerY + Math.sin((index / Math.max(nodes.length, 1)) * Math.PI * 2) * spread * 0.85,
   }));
 
-  for (let tick = 0; tick < 100; tick += 1) {
+  for (let tick = 0; tick < 160; tick += 1) {
     positions.forEach((node) => {
-      node.x += (width / 2 - node.x) * 0.002;
-      node.y += (height / 2 - node.y) * 0.002;
+      node.x += (centerX - node.x) * 0.0018;
+      node.y += (centerY - node.y) * 0.0018;
     });
 
     links.forEach((link) => {
@@ -53,27 +69,66 @@ function runSimulation(
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const force = (dist - 80) * 0.04;
+      const force = (dist - LINK_DISTANCE) * LINK_FORCE;
       a.x += (dx / dist) * force;
       a.y += (dy / dist) * force;
       b.x -= (dx / dist) * force;
       b.y -= (dy / dist) * force;
     });
 
+    for (let i = 0; i < positions.length; i += 1) {
+      for (let j = i + 1; j < positions.length; j += 1) {
+        const a = positions[i];
+        const b = positions[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const minDist = nodeRadius(a.type) + nodeRadius(b.type) + REPULSION_GAP;
+        if (dist >= minDist) continue;
+
+        const push = ((minDist - dist) / dist) * 0.48;
+        const ox = dx * push;
+        const oy = dy * push;
+        a.x -= ox;
+        a.y -= oy;
+        b.x += ox;
+        b.y += oy;
+      }
+    }
+
     positions.forEach((node) => {
-      node.x = Math.max(30, Math.min(width - 30, node.x));
-      node.y = Math.max(30, Math.min(height - 30, node.y));
+      node.x = Math.max(PADDING, Math.min(width - PADDING, node.x));
+      node.y = Math.max(PADDING, Math.min(height - PADDING, node.y));
     });
   }
 
-  return positions;
+  const separated = separateOverlappingNodes(
+    positions.map((node) => ({
+      id: node.id,
+      x: node.x,
+      y: node.y,
+      radius: nodeRadius(node.type),
+    })),
+    {
+      minX: PADDING,
+      minY: PADDING,
+      maxX: width - PADDING,
+      maxY: height - PADDING,
+    },
+    18,
+  );
+
+  return positions.map((node) => {
+    const next = separated.get(node.id);
+    return next ? { ...node, x: next.x, y: next.y } : node;
+  });
 }
 
 export function ForceDirectedGraph({
   nodes,
   links,
   width = 720,
-  height = 420,
+  height = 460,
   warmOnly = false,
 }: ForceDirectedGraphProps) {
   const filteredNodes = useMemo(() => {
@@ -105,11 +160,23 @@ export function ForceDirectedGraph({
     setLayout(runSimulation(filteredNodes, filteredLinks, width, height));
   }, [nodeKey, filteredNodes, filteredLinks, width, height]);
 
-  const nodeRadius = (type: PhysicianGraphNode["type"]) => {
-    if (type === "physician") return 6;
-    if (type === "competitor-pg") return 9;
-    return 11;
-  };
+  const labelPlacements = useMemo(() => {
+    const visibleLabels = layout
+      .filter((node) => hovered === node.id || node.type !== "physician")
+      .map((node) => {
+        const radius = nodeRadius(node.type);
+        const display =
+          node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label;
+        return {
+          id: node.id,
+          anchorX: node.x,
+          anchorY: node.y + radius + 12,
+          text: display,
+        };
+      });
+
+    return resolveLabelCollisions(visibleLabels, { fontSize: 9, labelHeight: 12 });
+  }, [layout, hovered]);
 
   return (
     <div className="w-full">
@@ -124,7 +191,7 @@ export function ForceDirectedGraph({
       <svg
         width="100%"
         viewBox={`0 0 ${width} ${height}`}
-        className="min-h-[420px] w-full rounded-lg border border-border bg-slate-50"
+        className="min-h-[460px] w-full rounded-lg border border-border bg-slate-50"
       >
         {filteredLinks.map((link, index) => {
           const a = layout.find((n) => n.id === link.source);
@@ -143,35 +210,42 @@ export function ForceDirectedGraph({
             />
           );
         })}
-        {layout.map((node) => (
-          <g
-            key={node.id}
-            onMouseEnter={() => setHovered(node.id)}
-            onMouseLeave={() => setHovered(null)}
-          >
-            <circle
-              cx={node.x}
-              cy={node.y}
-              r={nodeRadius(node.type)}
-              fill={NODE_COLORS[node.type]}
-              stroke="#fff"
-              strokeWidth={2}
-              opacity={hovered && hovered !== node.id ? 0.45 : 1}
-            />
-            {(hovered === node.id || node.type !== "physician") && (
-              <text
-                x={node.x}
-                y={node.y + nodeRadius(node.type) + 12}
-                textAnchor="middle"
-                fill="#334155"
-                fontSize={9}
-              >
-                {node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label}
-              </text>
-            )}
-            <title>{node.label}</title>
-          </g>
-        ))}
+        {layout.map((node) => {
+          const radius = nodeRadius(node.type);
+          const showLabel = hovered === node.id || node.type !== "physician";
+          const label = labelPlacements.get(node.id);
+
+          return (
+            <g
+              key={node.id}
+              onMouseEnter={() => setHovered(node.id)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              <circle
+                cx={node.x}
+                cy={node.y}
+                r={radius}
+                fill={NODE_COLORS[node.type]}
+                stroke="#fff"
+                strokeWidth={2}
+                opacity={hovered && hovered !== node.id ? 0.45 : 1}
+              />
+              {showLabel && label && (
+                <text
+                  x={label.x}
+                  y={label.y}
+                  textAnchor={label.textAnchor ?? "middle"}
+                  dominantBaseline={label.dominantBaseline ?? "hanging"}
+                  fill="#334155"
+                  fontSize={9}
+                >
+                  {node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label}
+                </text>
+              )}
+              <title>{node.label}</title>
+            </g>
+          );
+        })}
       </svg>
     </div>
   );

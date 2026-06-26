@@ -28,7 +28,7 @@ export function SankeyDiagram({ nodes, links, width = 720, height = 450 }: Sanke
   const columns = 3;
   const colWidth = (width - 100) / columns;
   const nodeHeight = 26;
-  const gap = 12;
+  const gap = 18;
 
   const nodesByColumn = Array.from({ length: columns }, (_, col) =>
     nodes.filter((n) => n.column === col),

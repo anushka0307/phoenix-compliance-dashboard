@@ -12,7 +12,7 @@ export function MarketAnalysisPageHeader({ msa }: MarketAnalysisPageHeaderProps)
         Market Analysis
       </p>
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{msa.name}</h1>
+        <h1 className="text-sm font-semibold tracking-tight text-foreground">{msa.name}</h1>
         <MsaStatusBadge status={msa.status} compact />
       </div>
     </header>
